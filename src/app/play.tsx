@@ -30,6 +30,12 @@ export default function TabTwoScreen() {
       paddingTop: Spacing.six,
       paddingBottom: Spacing.four,
     },
+    ios: {
+      paddingTop: insets.top,
+      paddingLeft: insets.left,
+      paddingRight: insets.right,
+      paddingBottom: insets.bottom,
+    },
   });
 
   return (
