@@ -27,7 +27,7 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="feed">
+      <NativeTabs.Trigger name="feed" disableTransparentOnScrollEdge>
         <NativeTabs.Trigger.Label>Feed</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tabIcons/explore.png')}

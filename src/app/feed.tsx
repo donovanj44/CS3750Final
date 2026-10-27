@@ -108,5 +108,6 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     borderRadius: Spacing.three,
     gap: Spacing.one,
+    minHeight: 240,
   },
 });
