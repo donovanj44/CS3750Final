@@ -1,9 +1,21 @@
 import * as Device from "expo-device";
-import { Platform, ScrollView, StyleSheet, useColorScheme } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useColorScheme,
+} from "react-native";
 
 import CourseBox from "@/components/course-box";
 import { ThemedText } from "@/components/themed-text";
-import { BottomTabInset, MaxContentWidth, Spacing } from "@/constants/theme";
+import { useLocation } from "@/constants/overpass";
+import {
+  BottomTabInset,
+  MaxContentWidth,
+  Spacing,
+  createStyles,
+} from "@/constants/theme";
 
 function getDevMenuHint() {
   if (Platform.OS === "web") {
@@ -27,9 +39,19 @@ function getDevMenuHint() {
 export default function HomeScreen() {
   let theme = useColorScheme() ?? "dark";
 
+  const styles = createStyles(theme);
+  const { location, errorMsg, loading, refreshLocation } = useLocation();
+
   return (
     <ScrollView>
       <CourseBox name="CourseName" desc="Course Description" theme={theme} />
+      {errorMsg && <Text style={styles.text}>Error: {errorMsg}</Text>}
+      {location && (
+        <Text style={styles.text}>
+          Your Location: Lat: {location.coords.latitude}, Long:{" "}
+          {location.coords.longitude}
+        </Text>
+      )}
     </ScrollView>
   );
 }
