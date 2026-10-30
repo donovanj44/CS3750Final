@@ -6,7 +6,43 @@ const nearby_course_query = `[out:json][timeout:25];
 nwr["leisure"="golf_course"](around:5000, LAT, LON);
 out body geom;`;
 
-export async function getNearbyCourses() {}
+export function getNearbyCourses(location: Location.LocationObject) {
+  const [data, setData] = useState<JSON | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const query = nearby_course_query
+    .replace("LAT", String(location.coords.latitude))
+    .replace("LON", String(location.coords.longitude));
+
+  const getCourses = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: "data=" + encodeURIComponent(query),
+      });
+
+      if (!response.ok) {
+        setErrorMsg("Http Error Status: ${response.status}");
+      }
+
+      setData(await response.json());
+    } catch (error: any) {
+      setErrorMsg(error.message);
+    }
+  };
+
+  useEffect(() => {
+    getCourses();
+  }, []);
+
+  return { data, loading, errorMsg, refreshCourses: getCourses };
+}
 
 export function useLocation() {
   const [location, setLocation] = useState<Location.LocationObject | null>(
