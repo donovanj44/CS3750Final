@@ -5,16 +5,17 @@ import {
   StyleSheet,
   Text,
   useColorScheme,
+  View,
 } from "react-native";
 
 import CourseBox from "@/components/course-box";
 import { ThemedText } from "@/components/themed-text";
-import { useLocation } from "@/constants/overpass";
+import { useLocation, useNearbyCourses } from "@/constants/overpass";
 import {
   BottomTabInset,
+  createStyles,
   MaxContentWidth,
   Spacing,
-  createStyles,
 } from "@/constants/theme";
 
 function getDevMenuHint() {
@@ -41,16 +42,32 @@ export default function HomeScreen() {
 
   const styles = createStyles(theme);
   const { location, errorMsg, loading, refreshLocation } = useLocation();
+  const {
+    data: courses,
+    loading: coursesLoading,
+    errorMsg: coursesError,
+    refreshCourses,
+  } = useNearbyCourses(location);
 
   return (
     <ScrollView>
       <CourseBox name="CourseName" desc="Course Description" theme={theme} />
-      {errorMsg && <Text style={styles.text}>Error: {errorMsg}</Text>}
+      {coursesError && <Text style={styles.text}>Error: {coursesError}</Text>}
       {location && (
-        <Text style={styles.text}>
-          Your Location: Lat: {location.coords.latitude}, Long:{" "}
-          {location.coords.longitude}
-        </Text>
+        <View>
+          <Text style={styles.text}>
+            Your Location: Lat: {location.coords.latitude}, Long:{" "}
+            {location.coords.longitude}
+          </Text>
+        </View>
+      )}
+      <Text>Text</Text>
+      {courses && (
+        <View>
+          <Text style={styles.text}>
+            Text: {JSON.stringify(courses, null, 2)}
+          </Text>
+        </View>
       )}
     </ScrollView>
   );
