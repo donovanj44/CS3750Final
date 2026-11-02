@@ -1,5 +1,5 @@
 import * as Location from "expo-location";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const url = "https://overpass-api.de/api/interpreter";
 const nearby_course_query = `[out:json][timeout:25];
@@ -7,24 +7,21 @@ nwr["leisure"="golf_course"](around:10000, LAT, LON);
 out body geom;`;
 
 export function useNearbyCourses(location: Location.LocationObject | null) {
-  const [data, setData] = useState<JSON | null>(null);
+  const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const getCourses = async () => {
+  const getCourses = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
+
     if (!location) {
-      setErrorMsg("Location Not Avalible");
-      return {
-        data,
-        loading,
-        errorMsg,
-        func: null,
-      };
+      setErrorMsg("Location Not Available");
+      setLoading(false);
+      return;
     }
 
-    let query = nearby_course_query
+    const query = nearby_course_query
       .replace("LAT", String(location.coords.latitude))
       .replace("LON", String(location.coords.longitude));
 
@@ -42,17 +39,18 @@ export function useNearbyCourses(location: Location.LocationObject | null) {
         throw new Error(`Http Error Status: ${response.status}`);
       }
 
-      setData(await response.json());
+      const jsonResult = await response.json();
+      setData(jsonResult);
     } catch (error: any) {
-      setErrorMsg(error.message);
+      setErrorMsg(error.message || "An unknown error occurred");
     } finally {
       setLoading(false);
     }
-  };
+  }, [location]);
 
   useEffect(() => {
     getCourses();
-  }, [location]);
+  }, [getCourses]);
 
   return { data, loading, errorMsg, refreshCourses: getCourses };
 }
