@@ -8,7 +8,6 @@ import {
   View,
 } from "react-native";
 
-
 import CourseBox from "@/components/course-box";
 import { ThemedText } from "@/components/themed-text";
 import { useLocation, useNearbyCourses } from "@/constants/overpass";
@@ -66,7 +65,7 @@ export default function HomeScreen() {
       {courses && (
         <View>
           <Text style={styles.text}>
-            Text: {JSON.stringify(courses, null, 2)}
+            Text: {JSON.stringify(courses).replace(/</g, "\\u003c")}
           </Text>
         </View>
       )}

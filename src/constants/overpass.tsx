@@ -1,7 +1,7 @@
 import * as Location from "expo-location";
 import { useEffect, useState } from "react";
 
-const url = "https://overpass-api.de";
+const url = "https://overpass-api.de/api/interpreter";
 const nearby_course_query = `[out:json][timeout:25];
 nwr["leisure"="golf_course"](around:10000, LAT, LON);
 out body geom;`;
@@ -32,18 +32,21 @@ export function useNearbyCourses(location: Location.LocationObject | null) {
       const response = await fetch(url, {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "User-Agent": "GOLFGPSAPP",
         },
         body: "data=" + encodeURIComponent(query),
       });
 
       if (!response.ok) {
-        setErrorMsg("Http Error Status: ${response.status}");
+        throw new Error(`Http Error Status: ${response.status}`);
       }
 
       setData(await response.json());
     } catch (error: any) {
       setErrorMsg(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
