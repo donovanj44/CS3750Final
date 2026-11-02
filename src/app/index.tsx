@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 
+
 import CourseBox from "@/components/course-box";
 import { ThemedText } from "@/components/themed-text";
 import { useLocation, useNearbyCourses } from "@/constants/overpass";

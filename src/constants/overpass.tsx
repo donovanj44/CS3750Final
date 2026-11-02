@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 const url = "https://overpass-api.de";
 const nearby_course_query = `[out:json][timeout:25];
-nwr["leisure"="golf_course"](around:5000, LAT, LON);
+nwr["leisure"="golf_course"](around:10000, LAT, LON);
 out body geom;`;
 
 export function useNearbyCourses(location: Location.LocationObject | null) {
@@ -49,7 +49,7 @@ export function useNearbyCourses(location: Location.LocationObject | null) {
 
   useEffect(() => {
     getCourses();
-  }, []);
+  }, [location]);
 
   return { data, loading, errorMsg, refreshCourses: getCourses };
 }
