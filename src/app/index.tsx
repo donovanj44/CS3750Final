@@ -64,9 +64,7 @@ export default function HomeScreen() {
       <Text>Text</Text>
       {courses && (
         <View>
-          <Text style={styles.text}>
-            Text: {JSON.stringify(courses).replace(/</g, "\\u003c")}
-          </Text>
+          <Text style={styles.text}>Text: {courses.elements[0].tags.name}</Text>
         </View>
       )}
     </ScrollView>
