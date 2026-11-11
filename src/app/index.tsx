@@ -65,7 +65,7 @@ export default function HomeScreen() {
       {courses && (
         <View>
           <Text style={styles.text}>
-            Text: {JSON.stringify(courses).replace(/</g, "\\u003c")}
+            {JSON.stringify(courses).replace(/</g, "\\u003c")}
           </Text>
         </View>
       )}
