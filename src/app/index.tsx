@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Text,
   useColorScheme,
-  View,
 } from "react-native";
 
 import CourseBox from "@/components/course-box";
@@ -50,23 +49,14 @@ export default function HomeScreen() {
   } = useNearbyCourses(location);
 
   return (
-    <ScrollView>
-      <CourseBox name="CourseName" desc="Course Description" theme={theme} />
-      {coursesError && <Text style={styles.text}>Error: {coursesError}</Text>}
-      {location && (
-        <View>
-          <Text style={styles.text}>
-            Your Location: Lat: {location.coords.latitude}, Long:{" "}
-            {location.coords.longitude}
-          </Text>
-        </View>
+    <ScrollView style={styles.container}>
+      {coursesLoading && (
+        <Text style={styles.title}>Loading Nearby Courses...</Text>
       )}
-      <Text>Text</Text>
-      {courses && (
-        <View>
-          <Text style={styles.text}>Text: {courses.elements[0].tags.name}</Text>
-        </View>
-      )}
+      {courses &&
+        courses.map((course) => (
+          <CourseBox key={course.id} course={course} theme={theme} />
+        ))}
     </ScrollView>
   );
 }

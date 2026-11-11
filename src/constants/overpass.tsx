@@ -6,8 +6,15 @@ const nearby_course_query = `[out:json][timeout:25];
 nwr["leisure"="golf_course"](around:10000, LAT, LON);
 out body geom;`;
 
+export interface Course {
+  id: string;
+  name: string;
+  phone: string;
+  website: string;
+}
+
 export function useNearbyCourses(location: Location.LocationObject | null) {
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<Course[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -40,7 +47,13 @@ export function useNearbyCourses(location: Location.LocationObject | null) {
       }
 
       const jsonResult = await response.json();
-      setData(jsonResult);
+      const courses: Course[] = jsonResult.elements.map((course: any) => ({
+        id: course.id,
+        name: course.tags?.name ?? "Unknown Course",
+        phone: course.tags?.phone ?? "No Phone",
+        website: course.tags?.website ?? "No Website",
+      }));
+      setData(courses);
     } catch (error: any) {
       setErrorMsg(error.message || "An unknown error occurred");
     } finally {
