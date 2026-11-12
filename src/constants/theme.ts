@@ -68,6 +68,12 @@ export const MaxContentWidth = 800;
 
 export const createStyles = (theme: ColorSchemeName) => {
   return StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingTop: 25,
+      paddingHorizontal: 16,
+    },
+
     title: {
       fontSize: 28,
       fontWeight: "bold",

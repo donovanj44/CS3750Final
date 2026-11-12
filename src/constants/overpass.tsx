@@ -109,8 +109,15 @@ function escapeOverpassString(value: string) {
     .replace(/"/g, '\\"');
 }
 
+export interface Course {
+  id: string;
+  name: string;
+  phone: string;
+  website: string;
+}
+
 export function useNearbyCourses(location: Location.LocationObject | null) {
-  const [data, setData] = useState<any | null>(null);
+  const [data, setData] = useState<Course[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
