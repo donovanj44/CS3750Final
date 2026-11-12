@@ -1,54 +1,35 @@
+import { useRouter } from "expo-router";
 import { FlatList, Text, useColorScheme } from "react-native";
 
 import CourseBox from "@/components/course-box";
-import { useLocation, useNearbyCourses } from "@/constants/overpass";
 import { createStyles } from "@/constants/theme";
-
-function getStatusMessage(
-  locationLoading: boolean,
-  locationError: string | null,
-  coursesLoading: boolean,
-  coursesError: string | null,
-  courseCount: number,
-) {
-  if (locationLoading) return "Getting your location...";
-  if (locationError) return `Error: ${locationError}`;
-  if (coursesLoading) return "Loading nearby courses...";
-  if (coursesError) return `Error: ${coursesError}`;
-  if (courseCount === 0) return "No courses found nearby.";
-  return null;
-}
+import { getCoursesStatusMessage, useCourses } from "@/context/courses-context";
 
 export default function HomeScreen() {
   const theme = useColorScheme() ?? "dark";
   const styles = createStyles(theme);
+  const router = useRouter();
 
-  const {
-    location,
-    loading: locationLoading,
-    errorMsg: locationError,
-  } = useLocation();
-  const {
-    data: courses,
-    loading: coursesLoading,
-    errorMsg: coursesError,
-    refreshCourses,
-  } = useNearbyCourses(location);
-
-  const statusMessage = getStatusMessage(
-    locationLoading,
-    locationError,
-    coursesLoading,
-    coursesError,
-    courses?.length ?? 0,
-  );
+  const coursesState = useCourses();
+  const { location, courses, coursesLoading, refreshCourses, selectCourse } =
+    coursesState;
+  const statusMessage = getCoursesStatusMessage(coursesState);
 
   return (
     <FlatList
       style={styles.container}
       data={courses ?? []}
       keyExtractor={(course) => course.id}
-      renderItem={({ item }) => <CourseBox course={item} theme={theme} />}
+      renderItem={({ item }) => (
+        <CourseBox
+          course={item}
+          theme={theme}
+          onPress={() => {
+            selectCourse(item.id);
+            router.navigate("/play");
+          }}
+        />
+      )}
       ListHeaderComponent={
         statusMessage ? (
           <Text style={styles.text}>{statusMessage}</Text>

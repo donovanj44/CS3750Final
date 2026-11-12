@@ -1,11 +1,17 @@
 import * as Location from "expo-location";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+export interface LatLon {
+  lat: number;
+  lon: number;
+}
 
 export interface Course {
   id: string;
   name: string;
   phone: string;
   website: string;
+  center: LatLon | null;
 }
 
 export interface OverpassElement {
@@ -15,7 +21,8 @@ export interface OverpassElement {
   lat?: number;
   lon?: number;
   nodes?: number[];
-  geometry?: { lat: number; lon: number }[];
+  geometry?: LatLon[];
+  bounds?: { minlat: number; minlon: number; maxlat: number; maxlon: number };
 }
 
 export interface OverpassResponse {
@@ -96,30 +103,31 @@ async function fetchFromEndpoint(endpoint: string, query: string) {
   return json;
 }
 
-async function fetchOverpass(query: string) {
-  let lastError: unknown = new Error("An unknown error occurred");
+const MAX_ATTEMPTS = MAX_ROUNDS * OVERPASS_ENDPOINTS.length;
 
-  for (let round = 0; round < MAX_ROUNDS; round++) {
-    if (round > 0) {
-      await sleep(RETRY_BASE_DELAY_MS * 2 ** (round - 1));
-    }
+async function fetchOverpass(
+  query: string,
+  attempt = 0,
+): Promise<OverpassResponse> {
+  const round = Math.floor(attempt / OVERPASS_ENDPOINTS.length);
+  const endpoint = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
 
-    for (const endpoint of OVERPASS_ENDPOINTS) {
-      try {
-        return await fetchFromEndpoint(endpoint, query);
-      } catch (error) {
-        lastError = error;
-        console.warn(
-          `Overpass request to ${endpoint} failed: ${getErrorMessage(error, "unknown error")}`,
-        );
-        if (error instanceof OverpassError && !error.retryable) {
-          throw error;
-        }
-      }
-    }
+  if (round > 0 && attempt % OVERPASS_ENDPOINTS.length === 0) {
+    await sleep(RETRY_BASE_DELAY_MS * 2 ** (round - 1));
   }
 
-  throw lastError;
+  try {
+    return await fetchFromEndpoint(endpoint, query);
+  } catch (error) {
+    console.warn(
+      `Overpass request to ${endpoint} failed: ${getErrorMessage(error, "unknown error")}`,
+    );
+    const isRetryable = !(error instanceof OverpassError) || error.retryable;
+    if (!isRetryable || attempt + 1 >= MAX_ATTEMPTS) {
+      throw error;
+    }
+    return fetchOverpass(query, attempt + 1);
+  }
 }
 
 const NEARBY_COURSES_QUERY = `[out:json][timeout:25];
@@ -148,9 +156,30 @@ function fillQuery(template: string, values: Record<string, string | number>) {
 
 function escapeOverpassRegex(value: string) {
   return value
-    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    .replace(/\\/g, "\\\\")
-    .replace(/"/g, '\\"');
+    .replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
+    .replaceAll("\\", String.raw`\\`)
+    .replaceAll('"', String.raw`\"`);
+}
+
+function getElementCenter(element: OverpassElement): LatLon | null {
+  if (element.bounds) {
+    const { minlat, minlon, maxlat, maxlon } = element.bounds;
+    return { lat: (minlat + maxlat) / 2, lon: (minlon + maxlon) / 2 };
+  }
+  if (element.lat !== undefined && element.lon !== undefined) {
+    return { lat: element.lat, lon: element.lon };
+  }
+  if (element.geometry?.length) {
+    const sum = element.geometry.reduce(
+      (acc, point) => ({ lat: acc.lat + point.lat, lon: acc.lon + point.lon }),
+      { lat: 0, lon: 0 },
+    );
+    return {
+      lat: sum.lat / element.geometry.length,
+      lon: sum.lon / element.geometry.length,
+    };
+  }
+  return null;
 }
 
 function parseCourses(json: OverpassResponse): Course[] {
@@ -159,7 +188,48 @@ function parseCourses(json: OverpassResponse): Course[] {
     name: element.tags?.name ?? "Unknown Course",
     phone: element.tags?.phone ?? "No Phone",
     website: element.tags?.website ?? "No Website",
+    center: getElementCenter(element),
   }));
+}
+
+const EARTH_RADIUS_METERS = 6371000;
+
+function toRadians(degrees: number) {
+  return (degrees * Math.PI) / 180;
+}
+
+export function distanceMeters(a: LatLon, b: LatLon) {
+  const dLat = toRadians(b.lat - a.lat);
+  const dLon = toRadians(b.lon - a.lon);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(a.lat)) *
+      Math.cos(toRadians(b.lat)) *
+      Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(h));
+}
+
+export function findClosestCourse(
+  courses: Course[],
+  location: Location.LocationObject | null,
+): Course | null {
+  if (!location) return courses[0] ?? null;
+
+  const here = {
+    lat: location.coords.latitude,
+    lon: location.coords.longitude,
+  };
+  let closest: Course | null = null;
+  let closestDistance = Infinity;
+  for (const course of courses) {
+    if (!course.center) continue;
+    const distance = distanceMeters(here, course.center);
+    if (distance < closestDistance) {
+      closest = course;
+      closestDistance = distance;
+    }
+  }
+  return closest ?? courses[0] ?? null;
 }
 
 async function fetchNearbyCourses(location: Location.LocationObject | null) {
@@ -217,45 +287,53 @@ export const AsyncStatus = Object.freeze({
   ERROR: "error",
 });
 
-type AsyncState<T> =
-  | { status: typeof AsyncStatus.LOADING }
+type AsyncResult<T> = { load: () => Promise<T>; requestId: number } & (
   | { status: typeof AsyncStatus.SUCCESS; data: T }
-  | { status: typeof AsyncStatus.ERROR; errorMsg: string };
+  | { status: typeof AsyncStatus.ERROR; errorMsg: string }
+);
 
-function useAsync<T>(load: () => Promise<T>) {
-  const [state, setState] = useState<AsyncState<T>>({
-    status: AsyncStatus.LOADING,
-  });
-  const latestRequest = useRef(0);
-
-  const run = useCallback(async () => {
-    const requestId = ++latestRequest.current;
-    setState({ status: AsyncStatus.LOADING });
-
-    try {
-      const data = await load();
-      if (requestId === latestRequest.current) {
-        setState({ status: AsyncStatus.SUCCESS, data });
-      }
-    } catch (error) {
-      if (requestId === latestRequest.current) {
-        setState({
-          status: AsyncStatus.ERROR,
-          errorMsg: getErrorMessage(error, "An unknown error occurred"),
-        });
-      }
-    }
-  }, [load]);
+export function useAsync<T>(load: () => Promise<T>) {
+  const [requestId, setRequestId] = useState(0);
+  const [result, setResult] = useState<AsyncResult<T> | null>(null);
 
   useEffect(() => {
-    run();
-  }, [run]);
+    let isCurrent = true;
+
+    load()
+      .then((data) => {
+        if (isCurrent) {
+          setResult({ load, requestId, status: AsyncStatus.SUCCESS, data });
+        }
+      })
+      .catch((error) => {
+        if (isCurrent) {
+          setResult({
+            load,
+            requestId,
+            status: AsyncStatus.ERROR,
+            errorMsg: getErrorMessage(error, "An unknown error occurred"),
+          });
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [load, requestId]);
+
+  const refresh = useCallback(() => {
+    setRequestId((id) => id + 1);
+  }, []);
+
+  const current =
+    result?.load === load && result.requestId === requestId ? result : null;
+  const status = current?.status ?? AsyncStatus.LOADING;
 
   return {
-    data: state.status === AsyncStatus.SUCCESS ? state.data : null,
-    loading: state.status === AsyncStatus.LOADING,
-    errorMsg: state.status === AsyncStatus.ERROR ? state.errorMsg : null,
-    refresh: run,
+    data: current?.status === AsyncStatus.SUCCESS ? current.data : null,
+    loading: status === AsyncStatus.LOADING,
+    errorMsg: current?.status === AsyncStatus.ERROR ? current.errorMsg : null,
+    refresh,
   };
 }
 

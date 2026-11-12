@@ -8,7 +8,12 @@ export type ThemedTextProps = TextProps & {
   themeColor?: ThemeColor;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+export function ThemedText({
+  style,
+  type = 'default',
+  themeColor,
+  ...rest
+}: Readonly<ThemedTextProps>) {
   const theme = useTheme();
 
   return (
