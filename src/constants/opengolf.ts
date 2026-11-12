@@ -2,7 +2,7 @@ import { useCallback } from "react";
 
 import { Course, distanceMeters, useAsync } from "@/constants/overpass";
 
-// Course data © OpenStreetMap contributors, ODbL 1.0.
+// © OpenStreetMap contributors (ODbL 1.0) via OpenGolfAPI
 const OPENGOLF_BASE_URL = "https://api.opengolfapi.org/api/v1";
 
 const REQUEST_TIMEOUT_MS = 15000;
