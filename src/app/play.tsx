@@ -136,7 +136,9 @@ function SelectedCourseView({
           styles.playButton,
           pressed && styles.pressed,
         ]}
-        onPress={() => {}}
+        onPress={() => {
+          router.push("/course-map");
+        }}
       >
         <Text style={styles.playButtonText}>Play</Text>
       </Pressable>
