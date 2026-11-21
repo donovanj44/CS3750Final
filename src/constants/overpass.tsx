@@ -36,6 +36,16 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 
+const PERSONAL_OVERPASS_ENDPOINT =
+  process.env.EXPO_PUBLIC_OVERPASS_LOCAL_URL?.trim() || null;
+const PERSONAL_STATUS_ENDPOINT = PERSONAL_OVERPASS_ENDPOINT?.replace(
+  /\/interpreter\/?$/,
+  "/status",
+);
+const PERSONAL_MAX_ATTEMPTS = 3;
+const PERSONAL_RETRY_DELAY_MS = 2000;
+const PERSONAL_STATUS_TIMEOUT_MS = 3000;
+
 const MAX_ROUNDS = 2;
 const RETRY_BASE_DELAY_MS = 1000;
 const REQUEST_TIMEOUT_MS = 35000;
@@ -105,7 +115,7 @@ async function fetchFromEndpoint(endpoint: string, query: string) {
 
 const MAX_ATTEMPTS = MAX_ROUNDS * OVERPASS_ENDPOINTS.length;
 
-async function fetchOverpass(
+async function fetchFromPublicEndpoints(
   query: string,
   attempt = 0,
 ): Promise<OverpassResponse> {
@@ -126,24 +136,78 @@ async function fetchOverpass(
     if (!isRetryable || attempt + 1 >= MAX_ATTEMPTS) {
       throw error;
     }
-    return fetchOverpass(query, attempt + 1);
+    return fetchFromPublicEndpoints(query, attempt + 1);
   }
+}
+
+async function isPersonalServerOnline() {
+  if (!PERSONAL_STATUS_ENDPOINT) return false;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    PERSONAL_STATUS_TIMEOUT_MS,
+  );
+
+  try {
+    await fetch(PERSONAL_STATUS_ENDPOINT, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function fetchFromPersonalServer(
+  query: string,
+): Promise<OverpassResponse | null> {
+  if (!PERSONAL_OVERPASS_ENDPOINT) return null;
+
+  for (let attempt = 1; attempt <= PERSONAL_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fetchFromEndpoint(PERSONAL_OVERPASS_ENDPOINT, query);
+    } catch (error) {
+      console.error(
+        `Personal Overpass server error (attempt ${attempt}/${PERSONAL_MAX_ATTEMPTS}): ${getErrorMessage(error, "unknown error")}`,
+      );
+      if (attempt < PERSONAL_MAX_ATTEMPTS) {
+        await sleep(PERSONAL_RETRY_DELAY_MS);
+      }
+    }
+  }
+  return null;
+}
+
+async function fetchOverpass(query: string): Promise<OverpassResponse> {
+  if (PERSONAL_OVERPASS_ENDPOINT && (await isPersonalServerOnline())) {
+    const result = await fetchFromPersonalServer(query);
+    if (result) return result;
+    console.warn(
+      "Personal Overpass server unavailable, falling back to public endpoints",
+    );
+  }
+  return fetchFromPublicEndpoints(query);
 }
 
 const NEARBY_COURSES_QUERY = `[out:json][timeout:25];
 nwr["leisure"="golf_course"](around:{{RADIUS}}, {{LAT}}, {{LON}});
 out body geom;`;
 
-const HOLE_DETAILS_QUERY = `[out:json][timeout:30];
-nwr["leisure"="golf_course"]["name"~"{{COURSE_NAME}}"](around:{{RADIUS}}, {{LAT}}, {{LON}})->.courseBoundary;
-(
-  node["golf"="hole"]["ref"="{{HOLE_NUMBER}}"](area.courseBoundary);
-  way["golf"="hole"]["ref"="{{HOLE_NUMBER}}"](area.courseBoundary);
-  relation["golf"="hole"]["ref"="{{HOLE_NUMBER}}"](area.courseBoundary);
-);
-out body;
->;
-out skel qt;`;
+const HOLE_IN_COURSE_QUERY = `[out:json][timeout:25];
+{{COURSE_TYPE}}({{COURSE_ID}});
+map_to_area->.course;
+way["golf"="hole"]["ref"="{{HOLE_NUMBER}}"](area.course);
+out geom;`;
+
+const HOLE_NEAR_POINT_QUERY = `[out:json][timeout:25];
+way["golf"="hole"]["ref"="{{HOLE_NUMBER}}"](around:{{RADIUS}}, {{LAT}}, {{LON}});
+out geom;`;
+
+const HOLE_SEARCH_RADIUS_METERS = 1500;
 
 function fillQuery(template: string, values: Record<string, string | number>) {
   return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
@@ -152,13 +216,6 @@ function fillQuery(template: string, values: Record<string, string | number>) {
     }
     return String(values[key]);
   });
-}
-
-function escapeOverpassRegex(value: string) {
-  return value
-    .replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
-    .replaceAll("\\", String.raw`\\`)
-    .replaceAll('"', String.raw`\"`);
 }
 
 function getElementCenter(element: OverpassElement): LatLon | null {
@@ -246,27 +303,60 @@ async function fetchNearbyCourses(location: Location.LocationObject | null) {
   return parseCourses(await fetchOverpass(query));
 }
 
-async function fetchHoleDetails(
-  courseName: string,
-  location: Location.LocationObject | null,
+const OVERPASS_AREA_TYPES: Record<string, string> = {
+  way: "way",
+  relation: "rel",
+};
+
+function pickClosestHole(
+  elements: OverpassElement[],
+  center: LatLon | null,
+): OverpassElement | null {
+  const holes = elements.filter((element) => element.geometry?.length);
+  if (!center) return holes[0] ?? null;
+
+  let closest: OverpassElement | null = null;
+  let closestDistance = Infinity;
+  for (const hole of holes) {
+    const holeCenter = getElementCenter(hole);
+    if (!holeCenter) continue;
+    const distance = distanceMeters(center, holeCenter);
+    if (distance < closestDistance) {
+      closest = hole;
+      closestDistance = distance;
+    }
+  }
+  return closest ?? holes[0] ?? null;
+}
+
+export async function fetchOverpassHole(
+  course: Course,
   holeNumber: number,
-) {
-  if (!location) {
-    throw new Error("Location Not Available");
-  }
-  if (!courseName) {
-    throw new Error("Course Name Not Provided");
+): Promise<LatLon[] | null> {
+  const [elementType, elementId] = course.id.split("/");
+  const areaType = OVERPASS_AREA_TYPES[elementType];
+  let elements: OverpassElement[] = [];
+
+  if (areaType && elementId) {
+    const query = fillQuery(HOLE_IN_COURSE_QUERY, {
+      COURSE_TYPE: areaType,
+      COURSE_ID: elementId,
+      HOLE_NUMBER: holeNumber,
+    });
+    elements = (await fetchOverpass(query)).elements ?? [];
   }
 
-  const query = fillQuery(HOLE_DETAILS_QUERY, {
-    COURSE_NAME: escapeOverpassRegex(courseName),
-    RADIUS: SEARCH_RADIUS_METERS,
-    LAT: location.coords.latitude,
-    LON: location.coords.longitude,
-    HOLE_NUMBER: holeNumber,
-  });
+  if (elements.length === 0 && course.center) {
+    const query = fillQuery(HOLE_NEAR_POINT_QUERY, {
+      HOLE_NUMBER: holeNumber,
+      RADIUS: HOLE_SEARCH_RADIUS_METERS,
+      LAT: course.center.lat,
+      LON: course.center.lon,
+    });
+    elements = (await fetchOverpass(query)).elements ?? [];
+  }
 
-  return fetchOverpass(query);
+  return pickClosestHole(elements, course.center)?.geometry ?? null;
 }
 
 async function getCurrentLocation() {
@@ -346,17 +436,4 @@ export function useNearbyCourses(location: Location.LocationObject | null) {
   const load = useCallback(() => fetchNearbyCourses(location), [location]);
   const { refresh, ...result } = useAsync(load);
   return { ...result, refreshCourses: refresh };
-}
-
-export function useHoleDetails(
-  courseName: string,
-  location: Location.LocationObject | null,
-  holeNumber: number,
-) {
-  const load = useCallback(
-    () => fetchHoleDetails(courseName, location, holeNumber),
-    [courseName, location, holeNumber],
-  );
-  const { refresh, ...result } = useAsync(load);
-  return { ...result, refreshHoleDetails: refresh };
 }

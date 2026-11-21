@@ -1,6 +1,11 @@
 import { useCallback } from "react";
 
-import { Course, distanceMeters, useAsync } from "@/constants/overpass";
+import {
+  Course,
+  distanceMeters,
+  LatLon,
+  useAsync,
+} from "@/constants/overpass";
 
 // © OpenStreetMap contributors (ODbL 1.0) via OpenGolfAPI
 const OPENGOLF_BASE_URL = "https://api.opengolfapi.org/api/v1";
@@ -24,17 +29,17 @@ export interface OpenGolfTee {
 export interface OpenGolfHole {
   number: number;
   par: number | null;
-  handicap_index: number | null;
+  stroke_index: number | null;
   yardages: Record<string, number> | null;
 }
 
 interface OpenGolfSearchResult {
   id: string;
   course_name: string;
-  lat: number | null;
-  lng: number | null;
-  par: number | null;
-  holes: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  par_total: number | null;
+  total_yardage: number | null;
   distance_mi?: number;
 }
 
@@ -46,11 +51,19 @@ interface OpenGolfSearchResponse {
 interface OpenGolfCourseResponse {
   id: string;
   course_name: string;
-  par: number | null;
-  holes: number | null;
-  yardage: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  par_total: number | null;
   tees: OpenGolfTee[] | null;
-  holes_data: OpenGolfHole[] | null;
+  holes: OpenGolfHole[] | null;
+}
+
+interface OpenGolfFeature {
+  geometry: { type: string; coordinates: unknown } | null;
+}
+
+interface OpenGolfFeaturesResponse {
+  features?: OpenGolfFeature[];
 }
 
 export interface CourseDetails {
@@ -127,10 +140,10 @@ async function findOpenGolfCourse(
   let nearest: OpenGolfSearchResult | null = null;
   let nearestDistance = Infinity;
   for (const candidate of courses) {
-    if (candidate.lat == null || candidate.lng == null) continue;
+    if (candidate.latitude == null || candidate.longitude == null) continue;
     const distance = distanceMeters(course.center, {
-      lat: candidate.lat,
-      lon: candidate.lng,
+      lat: candidate.latitude,
+      lon: candidate.longitude,
     });
     if (distance < nearestDistance) {
       nearest = candidate;
@@ -147,7 +160,7 @@ async function loadCourseDetails(course: Course): Promise<CourseDetails | null> 
   const detail = await fetchJson<OpenGolfCourseResponse>(
     `/courses/${encodeURIComponent(match.id)}`,
   );
-  const coursePar = detail.par ?? match.par;
+  const coursePar = detail.par_total ?? match.par_total;
   const tees = (detail.tees ?? [])
     .map((tee) => ({ ...tee, par: tee.par ?? coursePar }))
     .sort((a, b) => (b.yardage ?? 0) - (a.yardage ?? 0));
@@ -155,10 +168,10 @@ async function loadCourseDetails(course: Course): Promise<CourseDetails | null> 
   return {
     openGolfId: detail.id,
     name: detail.course_name,
-    holes: detail.holes ?? match.holes,
+    holes: detail.holes?.length ?? null,
     defaultTee: tees[0] ?? null,
     tees,
-    holesData: detail.holes_data ?? [],
+    holesData: detail.holes ?? [],
   };
 }
 
@@ -182,4 +195,29 @@ export function useCourseDetails(course: Course | null) {
   );
   const { refresh, ...result } = useAsync(load);
   return { ...result, refreshCourseDetails: refresh };
+}
+
+function flattenPositions(coordinates: unknown): LatLon[] {
+  if (!Array.isArray(coordinates)) return [];
+  if (typeof coordinates[0] === "number") {
+    const [lon, lat] = coordinates;
+    return typeof lat === "number" ? [{ lat, lon }] : [];
+  }
+  return coordinates.flatMap(flattenPositions);
+}
+
+export async function fetchOpenGolfHole(
+  course: Course,
+  holeNumber: number,
+): Promise<LatLon[] | null> {
+  const details = await fetchCourseDetails(course);
+  if (!details) return null;
+
+  const { features } = await fetchJson<OpenGolfFeaturesResponse>(
+    `/features?course=${encodeURIComponent(details.openGolfId)}&hole=${holeNumber}`,
+  );
+  const coordinates = (features ?? []).flatMap((feature) =>
+    flattenPositions(feature.geometry?.coordinates),
+  );
+  return coordinates.length > 0 ? coordinates : null;
 }

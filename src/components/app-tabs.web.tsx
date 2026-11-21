@@ -14,6 +14,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useIsTabBarHidden } from '@/context/tab-bar-context';
 
 export default function AppTabs() {
   return (
@@ -55,9 +56,10 @@ export function TabButton({ children, isFocused, ...props }: Readonly<TabButtonP
 export function CustomTabList(props: Readonly<TabListProps>) {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
+  const isTabBarHidden = useIsTabBarHidden();
 
   return (
-    <View {...props} style={styles.tabListContainer}>
+    <View {...props} style={[styles.tabListContainer, isTabBarHidden && styles.hidden]}>
       <ThemedView type="backgroundElement" style={styles.innerContainer}>
         <ThemedText type="smallBold" style={styles.brandText}>
           Expo Starter
@@ -104,6 +106,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  hidden: {
+    display: 'none',
   },
   tabButtonView: {
     paddingVertical: Spacing.one,

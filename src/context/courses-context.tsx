@@ -1,7 +1,12 @@
 import * as Location from "expo-location";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 
-import { Course, useLocation, useNearbyCourses } from "@/constants/overpass";
+import {
+  Course,
+  findClosestCourse,
+  useLocation,
+  useNearbyCourses,
+} from "@/constants/overpass";
 
 type CoursesContextValue = {
   location: Location.LocationObject | null;
@@ -70,6 +75,14 @@ export function useCourses() {
     throw new Error("useCourses must be used inside a CoursesProvider");
   }
   return value;
+}
+
+export function useCurrentCourse() {
+  const { location, courses, selectedCourseId } = useCourses();
+  const pickedCourse =
+    courses?.find((course) => course.id === selectedCourseId) ?? null;
+  const course = pickedCourse ?? findClosestCourse(courses ?? [], location);
+  return { pickedCourse, course };
 }
 
 export function getCoursesStatusMessage({

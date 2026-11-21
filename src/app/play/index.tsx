@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ColorSchemeName,
@@ -11,9 +11,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import TeeDropdown from "@/components/tee-dropdown";
 import { useCourseDetails } from "@/constants/opengolf";
-import { Course, findClosestCourse } from "@/constants/overpass";
+import { Course } from "@/constants/overpass";
 import { BottomTabInset, createStyles } from "@/constants/theme";
-import { getCoursesStatusMessage, useCourses } from "@/context/courses-context";
+import {
+  getCoursesStatusMessage,
+  useCourses,
+  useCurrentCourse,
+} from "@/context/courses-context";
 
 export default function PlayScreen() {
   const theme = useColorScheme() ?? "dark";
@@ -21,22 +25,22 @@ export default function PlayScreen() {
   const safeAreaInsets = useSafeAreaInsets();
 
   const coursesState = useCourses();
-  const { location, courses, selectedCourseId } = coursesState;
   const statusMessage = getCoursesStatusMessage(coursesState);
-
-  const pickedCourse =
-    courses?.find((course) => course.id === selectedCourseId) ?? null;
-  const course = pickedCourse ?? findClosestCourse(courses ?? [], location);
+  const { pickedCourse, course } = useCurrentCourse();
 
   return (
     <View
       style={[
         styles.container,
         styles.playContent,
-        { paddingBottom: safeAreaInsets.bottom + BottomTabInset + 16 },
+        {
+          paddingTop: safeAreaInsets.top + 25,
+          paddingBottom: safeAreaInsets.bottom + BottomTabInset + 16,
+        },
         (statusMessage || !course) && styles.playContentCentered,
       ]}
     >
+      <Stack.Screen options={{ title: "Play", headerShown: false }} />
       {statusMessage || !course ? (
         <Text style={[styles.text, styles.centeredText]}>{statusMessage}</Text>
       ) : (
@@ -137,7 +141,7 @@ function SelectedCourseView({
           pressed && styles.pressed,
         ]}
         onPress={() => {
-          router.push("/course-map");
+          router.push("/play/course-map");
         }}
       >
         <Text style={styles.playButtonText}>Play</Text>

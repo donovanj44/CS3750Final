@@ -2,13 +2,16 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
+import { useIsTabBarHidden } from '@/context/tab-bar-context';
 
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme ?? 'light'];
+  const isTabBarHidden = useIsTabBarHidden();
 
   return (
     <NativeTabs
+      hidden={isTabBarHidden}
       backgroundColor={colors.background}
       indicatorColor={colors.backgroundElement}
       labelStyle={{ selected: { color: colors.text } }}>
