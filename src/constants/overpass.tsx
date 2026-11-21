@@ -36,8 +36,8 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 
-const PERSONAL_OVERPASS_ENDPOINT =
-  process.env.EXPO_PUBLIC_OVERPASS_LOCAL_URL?.trim() || null;
+const PERSONAL_OVERPASS_ENDPOINT: string | null =
+  "https://overpass.freek4620.me/api/interpreter";
 const PERSONAL_STATUS_ENDPOINT = PERSONAL_OVERPASS_ENDPOINT?.replace(
   /\/interpreter\/?$/,
   "/status",
@@ -79,7 +79,7 @@ async function fetchFromEndpoint(endpoint: string, query: string) {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "User-Agent": "GOLFGPSAPP",
+        "User-Agent": "GOLFGPSAPP/1.0",
       },
       body: "data=" + encodeURIComponent(query),
       signal: controller.signal,
@@ -150,11 +150,12 @@ async function isPersonalServerOnline() {
   );
 
   try {
-    await fetch(PERSONAL_STATUS_ENDPOINT, {
+    const response = await fetch(PERSONAL_STATUS_ENDPOINT, {
       method: "GET",
+      headers: { "User-Agent": "GOLFGPSAPP/1.0" },
       signal: controller.signal,
     });
-    return true;
+    return response.ok;
   } catch {
     return false;
   } finally {
