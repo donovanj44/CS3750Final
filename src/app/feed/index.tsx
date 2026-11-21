@@ -1,9 +1,20 @@
-import { FlatList, Platform, StyleSheet, View } from 'react-native';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
+import { useCallback } from 'react';
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { useCompletedRounds } from '@/constants/round-storage';
+import { BottomTabInset, createStyles, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type FeedItem = {
@@ -30,6 +41,17 @@ export default function FeedScreen() {
     bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
   };
   const theme = useTheme();
+  const colorScheme = useColorScheme() ?? 'dark';
+  const sharedStyles = createStyles(colorScheme);
+  const router = useRouter();
+  const { data: rounds, refreshRounds } = useCompletedRounds();
+  const roundCount = rounds?.length ?? 0;
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshRounds();
+    }, [refreshRounds]),
+  );
 
   const contentPlatformStyle = Platform.select({
     android: {
@@ -62,12 +84,22 @@ export default function FeedScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      <Stack.Screen options={{ title: 'Feed', headerShown: false }} />
       <ThemedView
         style={[
           styles.header,
           { paddingTop: Platform.OS === 'web' ? Spacing.four : insets.top },
         ]}>
         <ThemedText type="subtitle">Feed</ThemedText>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/feed/my-rounds')}
+          style={({ pressed }) => [sharedStyles.feedBar, pressed && sharedStyles.pressed]}>
+          <Text style={sharedStyles.buttonText}>My Rounds</Text>
+          <Text style={sharedStyles.secondaryText}>
+            {roundCount} {roundCount === 1 ? 'round' : 'rounds'} ›
+          </Text>
+        </Pressable>
       </ThemedView>
       <FlatList
         style={styles.list}
@@ -94,6 +126,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.three,
+    gap: Spacing.three,
   },
   list: {
     flex: 1,

@@ -36,8 +36,7 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.private.coffee/api/interpreter",
 ];
 
-const PERSONAL_OVERPASS_ENDPOINT: string | null =
-  "https://overpass.freek4620.me/api/interpreter";
+const PERSONAL_OVERPASS_ENDPOINT = "https://overpass.freek4620.me/api/interpreter";
 const PERSONAL_STATUS_ENDPOINT = PERSONAL_OVERPASS_ENDPOINT?.replace(
   /\/interpreter\/?$/,
   "/status",
@@ -431,6 +430,46 @@ export function useAsync<T>(load: () => Promise<T>) {
 export function useLocation() {
   const { data, loading, errorMsg, refresh } = useAsync(getCurrentLocation);
   return { location: data, loading, errorMsg, refreshLocation: refresh };
+}
+
+const WATCH_DISTANCE_INTERVAL_METERS = 2;
+
+export function useWatchedLocation() {
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null,
+  );
+
+  useEffect(() => {
+    let isCurrent = true;
+    let subscription: Location.LocationSubscription | null = null;
+
+    Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: WATCH_DISTANCE_INTERVAL_METERS,
+      },
+      setLocation,
+    )
+      .then((watch) => {
+        if (isCurrent) {
+          subscription = watch;
+        } else {
+          watch.remove();
+        }
+      })
+      .catch((error) => {
+        console.warn(
+          `Location watch failed: ${getErrorMessage(error, "unknown error")}`,
+        );
+      });
+
+    return () => {
+      isCurrent = false;
+      subscription?.remove();
+    };
+  }, []);
+
+  return location;
 }
 
 export function useNearbyCourses(location: Location.LocationObject | null) {

@@ -1,5 +1,11 @@
 import { Stack } from "expo-router";
 
+import { RoundProvider } from "@/context/round-context";
+
 export default function PlayLayout() {
-  return <Stack />;
+  return (
+    <RoundProvider>
+      <Stack />
+    </RoundProvider>
+  );
 }

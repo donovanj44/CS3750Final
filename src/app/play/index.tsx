@@ -1,6 +1,7 @@
 import { Stack, useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   ColorSchemeName,
   Pressable,
   Text,
@@ -18,6 +19,7 @@ import {
   useCourses,
   useCurrentCourse,
 } from "@/context/courses-context";
+import { useRound, useRoundDispatch } from "@/context/round-context";
 
 export default function PlayScreen() {
   const theme = useColorScheme() ?? "dark";
@@ -68,7 +70,9 @@ function SelectedCourseView({
 }: Readonly<SelectedCourseViewProps>) {
   const styles = createStyles(theme);
   const router = useRouter();
-  const { selectCourse } = useCourses();
+  const { courses, selectCourse } = useCourses();
+  const round = useRound();
+  const dispatchRound = useRoundDispatch();
 
   const {
     data: details,
@@ -82,6 +86,44 @@ function SelectedCourseView({
     tees.find((tee) => tee.tee_key === selectedTeeKey) ??
     details?.defaultTee ??
     null;
+
+  const isResuming = round?.courseId === course.id;
+  const otherRoundCourse =
+    round && !isResuming
+      ? (courses?.find((candidate) => candidate.id === round.courseId) ?? null)
+      : null;
+
+  function startRound() {
+    dispatchRound({
+      type: "started",
+      courseId: course.id,
+      courseName: course.name,
+      teeKey: selectedTee?.tee_key ?? null,
+    });
+    router.push("/play/course-map");
+  }
+
+  function handlePlay() {
+    if (!round || isResuming) {
+      startRound();
+      return;
+    }
+    Alert.alert(
+      "Discard round?",
+      `You have an unfinished round at ${round.courseName}. Starting here will discard it.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: () => {
+            dispatchRound({ type: "finished" });
+            startRound();
+          },
+        },
+      ],
+    );
+  }
 
   let teeStatus: string | null = null;
   if (detailsLoading) teeStatus = "Loading tees...";
@@ -133,6 +175,17 @@ function SelectedCourseView({
         </Pressable>
       )}
 
+      {otherRoundCourse && (
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+          onPress={() => selectCourse(otherRoundCourse.id)}
+        >
+          <Text style={styles.buttonText}>
+            Go to unfinished round at {otherRoundCourse.name}
+          </Text>
+        </Pressable>
+      )}
+
       <Pressable
         accessibilityRole="button"
         style={({ pressed }) => [
@@ -140,11 +193,11 @@ function SelectedCourseView({
           styles.playButton,
           pressed && styles.pressed,
         ]}
-        onPress={() => {
-          router.push("/play/course-map");
-        }}
+        onPress={handlePlay}
       >
-        <Text style={styles.playButtonText}>Play</Text>
+        <Text style={styles.playButtonText}>
+          {isResuming ? "Resume round" : "Play"}
+        </Text>
       </Pressable>
     </>
   );

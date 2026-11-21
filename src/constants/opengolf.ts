@@ -221,3 +221,47 @@ export async function fetchOpenGolfHole(
   );
   return coordinates.length > 0 ? coordinates : null;
 }
+
+function samePoint(a: LatLon, b: LatLon) {
+  return a.lat === b.lat && a.lon === b.lon;
+}
+
+async function loadOpenGolfGreen(
+  course: Course,
+  holeNumber: number,
+): Promise<LatLon[] | null> {
+  const details = await fetchCourseDetails(course);
+  if (!details) return null;
+
+  const { features } = await fetchJson<OpenGolfFeaturesResponse>(
+    `/features?course=${encodeURIComponent(details.openGolfId)}&hole=${holeNumber}&type=green`,
+  );
+  const green = (features ?? []).find((feature) => feature.geometry);
+  const points = flattenPositions(green?.geometry?.coordinates);
+  if (points.length > 1 && samePoint(points[0], points[points.length - 1])) {
+    points.pop();
+  }
+  return points.length > 0 ? points : null;
+}
+
+const greenCache = new Map<string, Promise<LatLon[] | null>>();
+
+export function fetchOpenGolfGreen(course: Course, holeNumber: number) {
+  const key = `${course.id}:${holeNumber}`;
+  let cached = greenCache.get(key);
+  if (!cached) {
+    cached = loadOpenGolfGreen(course, holeNumber);
+    greenCache.set(key, cached);
+    cached.catch(() => greenCache.delete(key));
+  }
+  return cached;
+}
+
+export function useHoleGreen(course: Course | null, holeNumber: number) {
+  const load = useCallback(
+    async () => (course ? fetchOpenGolfGreen(course, holeNumber) : null),
+    [course, holeNumber],
+  );
+  const { refresh, ...result } = useAsync(load);
+  return { ...result, refreshHoleGreen: refresh };
+}

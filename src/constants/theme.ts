@@ -108,6 +108,67 @@ export const createStyles = (theme: ColorSchemeName) => {
       borderColor: colors.backgroundBorder,
     },
 
+    feedBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.backgroundElement,
+      borderRadius: 16,
+      paddingVertical: 14,
+      paddingHorizontal: 18,
+      borderWidth: 1,
+      borderColor: colors.backgroundBorder,
+    },
+
+    roundScore: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: colors.text,
+    },
+
+    scorecard: {
+      backgroundColor: colors.backgroundElement,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.backgroundBorder,
+      marginVertical: 8,
+      marginHorizontal: 16,
+      overflow: "hidden",
+    },
+
+    scoreRow: {
+      flexDirection: "row",
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.backgroundBorder,
+    },
+
+    scoreHeaderRow: {
+      borderTopWidth: 0,
+      backgroundColor: colors.backgroundSelected,
+    },
+
+    scoreSubtotalRow: {
+      backgroundColor: colors.backgroundSelected,
+    },
+
+    scoreCell: {
+      flex: 1,
+      textAlign: "center",
+      fontSize: 16,
+      color: colors.text,
+    },
+
+    scoreCellBold: {
+      fontWeight: "700",
+    },
+
+    scoreUnderPar: {
+      color: colors.accentBorder,
+      fontWeight: "700",
+    },
+
     button: {
       backgroundColor: colors.backgroundSelected,
       borderRadius: 16,
@@ -222,6 +283,103 @@ export const createStyles = (theme: ColorSchemeName) => {
 
     dropdownOptionSelected: {
       backgroundColor: colors.backgroundSelected,
+    },
+
+    hudRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+    },
+
+    distanceTag: {
+      backgroundColor: colors.backgroundElement,
+      borderWidth: 1,
+      borderColor: colors.backgroundBorder,
+      borderRadius: 8,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+    },
+
+    distanceTagText: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.text,
+    },
+
+    distanceTagSlot: {
+      width: 120,
+      paddingLeft: 72,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+
+    hudPill: {
+      position: "absolute",
+      alignSelf: "center",
+      backgroundColor: colors.backgroundElement,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.backgroundBorder,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+    },
+
+    hudStack: {
+      position: "absolute",
+      left: 12,
+      right: 12,
+      gap: 8,
+    },
+
+    mapButton: {
+      marginVertical: 0,
+      marginHorizontal: 0,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      justifyContent: "center",
+    },
+
+    mapButtonText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: colors.text,
+    },
+
+    mapPlayButtonText: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: colors.onAccent,
+    },
+
+    mapStepperText: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: colors.text,
+    },
+
+    mapTile: {
+      backgroundColor: colors.backgroundElement,
+      borderWidth: 1,
+      borderColor: colors.backgroundBorder,
+      borderRadius: 12,
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      alignItems: "center",
+      gap: 2,
+    },
+
+    stepperValue: {
+      minWidth: 48,
+      textAlign: "center",
+      fontSize: 32,
+      fontWeight: "800",
+      color: colors.text,
+    },
+
+    disabled: {
+      opacity: 0.4,
     },
   });
 };
