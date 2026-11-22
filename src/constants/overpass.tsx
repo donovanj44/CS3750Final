@@ -182,6 +182,13 @@ async function fetchFromPersonalServer(
   return null;
 }
 
+async function fetchPersonalOverpass(
+  query: string,
+): Promise<OverpassResponse | null> {
+  if (!(await isPersonalServerOnline())) return null;
+  return fetchFromPersonalServer(query);
+}
+
 async function fetchOverpass(query: string): Promise<OverpassResponse> {
   if (PERSONAL_OVERPASS_ENDPOINT && (await isPersonalServerOnline())) {
     const result = await fetchFromPersonalServer(query);
@@ -206,6 +213,16 @@ out geom;`;
 const HOLE_NEAR_POINT_QUERY = `[out:json][timeout:25];
 way["golf"="hole"]["ref"="{{HOLE_NUMBER}}"](around:{{RADIUS}}, {{LAT}}, {{LON}});
 out geom;`;
+
+const HOLE_PARS_IN_COURSE_QUERY = `[out:json][timeout:25];
+{{COURSE_TYPE}}({{COURSE_ID}});
+map_to_area->.course;
+way["golf"="hole"]["par"](area.course);
+out tags bb;`;
+
+const HOLE_PARS_NEAR_POINT_QUERY = `[out:json][timeout:25];
+way["golf"="hole"]["par"](around:{{RADIUS}}, {{LAT}}, {{LON}});
+out tags bb;`;
 
 const HOLE_SEARCH_RADIUS_METERS = 1500;
 
@@ -357,6 +374,67 @@ export async function fetchOverpassHole(
   }
 
   return pickClosestHole(elements, course.center)?.geometry ?? null;
+}
+
+function parseLeadingInteger(value: string | undefined) {
+  const match = value?.match(/^\d+/);
+  const number = match ? Number(match[0]) : 0;
+  return number > 0 ? number : null;
+}
+
+function parseHolePars(
+  elements: OverpassElement[],
+  center: LatLon | null,
+): Record<number, number> {
+  const pars: Record<number, number> = {};
+  const distances: Record<number, number> = {};
+
+  for (const element of elements) {
+    const ref = element.tags?.ref;
+    const holeNumber = ref && /^\d+$/.test(ref) ? Number(ref) : null;
+    const par = parseLeadingInteger(element.tags?.par);
+    if (!holeNumber || par == null) continue;
+
+    const holeCenter = getElementCenter(element);
+    const distance =
+      center && holeCenter ? distanceMeters(center, holeCenter) : Infinity;
+    if (holeNumber in pars && distance >= distances[holeNumber]) continue;
+
+    pars[holeNumber] = par;
+    distances[holeNumber] = distance;
+  }
+  return pars;
+}
+
+export async function fetchOverpassPars(
+  course: Course,
+): Promise<Record<number, number> | null> {
+  const [elementType, elementId] = course.id.split("/");
+  const areaType = OVERPASS_AREA_TYPES[elementType];
+  let elements: OverpassElement[] = [];
+
+  if (areaType && elementId) {
+    const query = fillQuery(HOLE_PARS_IN_COURSE_QUERY, {
+      COURSE_TYPE: areaType,
+      COURSE_ID: elementId,
+    });
+    const response = await fetchPersonalOverpass(query);
+    if (!response) return null;
+    elements = response.elements ?? [];
+  }
+
+  if (elements.length === 0 && course.center) {
+    const query = fillQuery(HOLE_PARS_NEAR_POINT_QUERY, {
+      RADIUS: HOLE_SEARCH_RADIUS_METERS,
+      LAT: course.center.lat,
+      LON: course.center.lon,
+    });
+    const response = await fetchPersonalOverpass(query);
+    if (!response) return null;
+    elements = response.elements ?? [];
+  }
+
+  return parseHolePars(elements, course.center);
 }
 
 async function getCurrentLocation() {

@@ -25,9 +25,9 @@ import {
   remainingHolePoints,
   useHoleCoordinates,
 } from "@/constants/hole-location";
+import { useHolePars } from "@/constants/hole-pars";
 import {
   fetchOpenGolfGreen,
-  OpenGolfHole,
   useCourseDetails,
   useHoleGreen,
 } from "@/constants/opengolf";
@@ -157,12 +157,15 @@ function getDistanceTags(
   return tags;
 }
 
-function getTotals(scores: Record<number, number>, holesData: OpenGolfHole[]) {
+function getTotals(
+  scores: Record<number, number>,
+  pars: Record<number, number>,
+) {
   let totalStrokes = 0;
   let toPar = 0;
   const entries = Object.entries(scores);
   for (const [number, strokes] of entries) {
-    const par = holesData.find((hole) => hole.number === Number(number))?.par;
+    const par = pars[Number(number)];
     totalStrokes += strokes;
     if (par != null) toPar += strokes - par;
   }
@@ -255,9 +258,10 @@ export default function CourseMap() {
   );
   const { data: details } = useCourseDetails(course);
   const { data: greenPolygon } = useHoleGreen(course, holeNumber);
-  const holesData = details?.holesData ?? [];
+  const { data: holePars } = useHolePars(course);
+  const pars = holePars ?? {};
   const holeCount = details?.holes || DEFAULT_HOLE_COUNT;
-  const par = holesData.find((hole) => hole.number === holeNumber)?.par ?? null;
+  const par = pars[holeNumber] ?? null;
 
   useEffect(() => {
     setIsTabBarHidden(true);
@@ -305,7 +309,7 @@ export default function CourseMap() {
   );
 
   const scores = round?.scores ?? {};
-  const { scoredCount, totalStrokes, toPar } = getTotals(scores, holesData);
+  const { scoredCount, totalStrokes, toPar } = getTotals(scores, pars);
   const canFinish = round !== null && scoredCount > 0;
 
   function confirmFinish() {
@@ -318,7 +322,7 @@ export default function CourseMap() {
         {
           text: "Finish",
           onPress: async () => {
-            const completed = finishRound(round, holesData);
+            const completed = finishRound(round, pars);
             await roundStorage.addCompletedRound(completed);
             await roundStorage.addPendingUpload(completed.id);
             dispatch({ type: "finished" });

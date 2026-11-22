@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Crypto from "expo-crypto";
 import { useCallback } from "react";
 
-import { OpenGolfHole } from "@/constants/opengolf";
 import { useAsync } from "@/constants/overpass";
 
 const CURRENT_ROUND_KEY = "currentRound";
@@ -117,13 +116,12 @@ export const roundStorage = new RoundStorage();
 
 export function finishRound(
   round: CurrentRound,
-  holesData: OpenGolfHole[],
+  pars: Record<number, number>,
 ): CompletedRound {
   const holes = Object.entries(round.scores)
     .map(([number, strokes]) => {
       const holeNumber = Number(number);
-      const par =
-        holesData.find((hole) => hole.number === holeNumber)?.par ?? null;
+      const par = pars[holeNumber] ?? null;
       return { number: holeNumber, par, strokes };
     })
     .sort((a, b) => a.number - b.number);
