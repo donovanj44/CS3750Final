@@ -169,6 +169,46 @@ export const createStyles = (theme: ColorSchemeName) => {
       fontWeight: "700",
     },
 
+    holeGrid: {
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.backgroundBorder,
+      marginTop: 8,
+      overflow: "hidden",
+    },
+
+    holeGridRow: {
+      flexDirection: "row",
+      borderTopWidth: 1,
+      borderTopColor: colors.backgroundBorder,
+    },
+
+    holeGridHeaderRow: {
+      borderTopWidth: 0,
+      backgroundColor: colors.backgroundSelected,
+    },
+
+    holeGridCell: {
+      flex: 1,
+      textAlign: "center",
+      paddingVertical: 6,
+      fontSize: 13,
+      color: colors.text,
+    },
+
+    holeGridLabelCell: {
+      flex: 1.8,
+      textAlign: "left",
+      paddingLeft: 8,
+      fontWeight: "600",
+    },
+
+    holeGridSubtotalCell: {
+      flex: 1.4,
+      fontWeight: "700",
+      backgroundColor: colors.backgroundSelected,
+    },
+
     button: {
       backgroundColor: colors.backgroundSelected,
       borderRadius: 16,

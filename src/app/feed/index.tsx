@@ -95,7 +95,12 @@ export default function FeedScreen() {
         data={feed?.rounds ?? []}
         keyExtractor={(round) => round.id}
         renderItem={({ item }) => (
-          <RoundBox round={item} theme={colorScheme} playerName={item.playerName} />
+          <RoundBox
+            round={item}
+            theme={colorScheme}
+            playerName={item.playerName}
+            showHoles
+          />
         )}
         ListEmptyComponent={
           loading ? undefined : (

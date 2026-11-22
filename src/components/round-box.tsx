@@ -1,5 +1,6 @@
 import { ColorSchemeName, Pressable, Text } from "react-native";
 
+import HoleScores from "@/components/hole-scores";
 import { CompletedRound, formatToPar } from "@/constants/round-storage";
 import { createStyles } from "@/constants/theme";
 
@@ -8,6 +9,7 @@ export type RoundBoxProps = {
   theme: ColorSchemeName;
   onPress?: () => void;
   playerName?: string;
+  showHoles?: boolean;
 };
 
 export default function RoundBox({
@@ -15,6 +17,7 @@ export default function RoundBox({
   theme,
   onPress,
   playerName,
+  showHoles = false,
 }: Readonly<RoundBoxProps>) {
   const styles = createStyles(theme);
   const toPar = formatToPar(round.totalStrokes, round.totalPar);
@@ -42,6 +45,7 @@ export default function RoundBox({
         {round.totalStrokes}
         {toPar ? ` (${toPar})` : ""}
       </Text>
+      {showHoles && <HoleScores holes={round.holes} theme={theme} />}
     </Pressable>
   );
 }
