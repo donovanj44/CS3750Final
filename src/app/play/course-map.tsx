@@ -14,6 +14,7 @@ import MapView, { Camera, Marker, Polygon, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import HoleHeader from "@/components/hole-header";
+import PlayerNameModal from "@/components/player-name-modal";
 import ScorePanel from "@/components/score-panel";
 import {
   bearingDegrees,
@@ -35,7 +36,9 @@ import {
   LatLon,
   useWatchedLocation,
 } from "@/constants/overpass";
+import { loadPlayerName, savePlayerName } from "@/constants/player";
 import { finishRound, roundStorage } from "@/constants/round-storage";
+import { syncPendingRounds } from "@/constants/round-sync";
 import { Colors, createStyles } from "@/constants/theme";
 import { useCourses, useCurrentCourse } from "@/context/courses-context";
 import { useRound, useRoundDispatch } from "@/context/round-context";
@@ -243,6 +246,7 @@ export default function CourseMap() {
   const round = useRound();
   const dispatch = useRoundDispatch();
   const liveLocation = useWatchedLocation();
+  const [isNamePromptVisible, setIsNamePromptVisible] = useState(false);
 
   const holeNumber = round?.holeNumber ?? 1;
   const { data: holeCoordinates, loading: holeLoading } = useHoleCoordinates(
@@ -314,13 +318,32 @@ export default function CourseMap() {
         {
           text: "Finish",
           onPress: async () => {
-            await roundStorage.addCompletedRound(finishRound(round, holesData));
+            const completed = finishRound(round, holesData);
+            await roundStorage.addCompletedRound(completed);
+            await roundStorage.addPendingUpload(completed.id);
             dispatch({ type: "finished" });
-            router.back();
+            if (await loadPlayerName()) {
+              void syncPendingRounds();
+              router.back();
+            } else {
+              setIsNamePromptVisible(true);
+            }
           },
         },
       ],
     );
+  }
+
+  async function savePlayerNameAndSync(name: string) {
+    await savePlayerName(name);
+    void syncPendingRounds();
+    setIsNamePromptVisible(false);
+    router.back();
+  }
+
+  function skipPlayerName() {
+    setIsNamePromptVisible(false);
+    router.back();
   }
 
   let holeStatus: string | null = null;
@@ -434,6 +457,13 @@ export default function CourseMap() {
           dispatch({ type: "holeChanged", delta, holeCount })
         }
         onFinish={confirmFinish}
+      />
+
+      <PlayerNameModal
+        visible={isNamePromptVisible}
+        theme={theme}
+        onSave={savePlayerNameAndSync}
+        onSkip={skipPlayerName}
       />
     </View>
   );

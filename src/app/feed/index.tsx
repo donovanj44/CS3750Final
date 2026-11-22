@@ -1,5 +1,5 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   FlatList,
   Platform,
@@ -11,28 +11,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import RoundBox from '@/components/round-box';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { FEED_PAGE_SIZE, useFeedPage } from '@/constants/round-feed';
 import { useCompletedRounds } from '@/constants/round-storage';
 import { BottomTabInset, createStyles, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-
-type FeedItem = {
-  id: string;
-  title: string;
-  description: string;
-};
-
-const DATA: FeedItem[] = [
-  { id: '1', title: 'Box One', description: 'This is the first item.' },
-  { id: '2', title: 'Box Two', description: 'This is the second item.' },
-  { id: '3', title: 'Box Three', description: 'This is the third item.' },
-  { id: '4', title: 'Box Four', description: 'This is the fourth item.' },
-  { id: '5', title: 'Box Five', description: 'This is the fifth item.' },
-  { id: '6', title: 'Box Six', description: 'This is the sixth item.' },
-  { id: '7', title: 'Box Seven', description: 'This is the seventh item.' },
-  { id: '8', title: 'Box Eight', description: 'This is the eighth item.' },
-];
 
 export default function FeedScreen() {
   const safeAreaInsets = useSafeAreaInsets();
@@ -46,11 +31,18 @@ export default function FeedScreen() {
   const router = useRouter();
   const { data: rounds, refreshRounds } = useCompletedRounds();
   const roundCount = rounds?.length ?? 0;
+  const [page, setPage] = useState(0);
+  const { data: feed, loading, errorMsg, refreshFeed } = useFeedPage(page);
+  const totalCount = feed?.totalCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / FEED_PAGE_SIZE));
+  const isFirstPage = page === 0;
+  const isLastPage = page >= totalPages - 1;
 
   useFocusEffect(
     useCallback(() => {
       refreshRounds();
-    }, [refreshRounds]),
+      refreshFeed();
+    }, [refreshRounds, refreshFeed]),
   );
 
   const contentPlatformStyle = Platform.select({
@@ -72,15 +64,6 @@ export default function FeedScreen() {
       paddingBottom: Spacing.four,
     },
   });
-
-  const renderItem = ({ item }: { item: FeedItem }) => (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText type="smallBold">{item.title}</ThemedText>
-      <ThemedText type="small" themeColor="textSecondary">
-        {item.description}
-      </ThemedText>
-    </ThemedView>
-  );
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -108,9 +91,52 @@ export default function FeedScreen() {
           contentPlatformStyle,
           { paddingTop: Spacing.three },
         ]}
-        data={DATA}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        key={page}
+        data={feed?.rounds ?? []}
+        keyExtractor={(round) => round.id}
+        renderItem={({ item }) => (
+          <RoundBox round={item} theme={colorScheme} playerName={item.playerName} />
+        )}
+        ListEmptyComponent={
+          loading ? undefined : (
+            <Text style={[sharedStyles.text, sharedStyles.centeredText]}>
+              {errorMsg ?? 'No rounds yet.'}
+            </Text>
+          )
+        }
+        ListFooterComponent={
+          totalPages > 1 ? (
+            <View style={styles.pager}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isFirstPage}
+                onPress={() => setPage((current) => current - 1)}
+                style={({ pressed }) => [
+                  sharedStyles.button,
+                  pressed && sharedStyles.pressed,
+                  isFirstPage && sharedStyles.disabled,
+                ]}>
+                <Text style={sharedStyles.buttonText}>‹ Prev</Text>
+              </Pressable>
+              <Text style={sharedStyles.secondaryText}>
+                Page {page + 1} of {totalPages}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isLastPage}
+                onPress={() => setPage((current) => current + 1)}
+                style={({ pressed }) => [
+                  sharedStyles.button,
+                  pressed && sharedStyles.pressed,
+                  isLastPage && sharedStyles.disabled,
+                ]}>
+                <Text style={sharedStyles.buttonText}>Next ›</Text>
+              </Pressable>
+            </View>
+          ) : undefined
+        }
+        refreshing={loading}
+        onRefresh={refreshFeed}
       />
     </View>
   );
@@ -137,10 +163,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     gap: Spacing.three,
   },
-  card: {
-    padding: Spacing.three,
-    borderRadius: Spacing.three,
-    gap: Spacing.one,
-    minHeight: 240,
+  pager: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: Spacing.three,
   },
 });

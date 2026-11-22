@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Crypto from "expo-crypto";
 import { useCallback } from "react";
 
 import { OpenGolfHole } from "@/constants/opengolf";
@@ -6,6 +7,7 @@ import { useAsync } from "@/constants/overpass";
 
 const CURRENT_ROUND_KEY = "currentRound";
 const COMPLETED_ROUNDS_KEY = "completedRounds";
+const PENDING_UPLOADS_KEY = "pendingRoundUploads";
 
 export interface CurrentRound {
   courseId: string;
@@ -90,6 +92,25 @@ class RoundStorage {
       rounds.filter((round) => round.id !== id),
     );
   }
+
+  async loadPendingUploads(): Promise<string[]> {
+    const ids = await this.readJson<string[]>(PENDING_UPLOADS_KEY);
+    return Array.isArray(ids) ? ids : [];
+  }
+
+  async addPendingUpload(id: string) {
+    const ids = await this.loadPendingUploads();
+    if (ids.includes(id)) return;
+    await this.writeJson(PENDING_UPLOADS_KEY, [...ids, id]);
+  }
+
+  async removePendingUpload(id: string) {
+    const ids = await this.loadPendingUploads();
+    await this.writeJson(
+      PENDING_UPLOADS_KEY,
+      ids.filter((pendingId) => pendingId !== id),
+    );
+  }
 }
 
 export const roundStorage = new RoundStorage();
@@ -108,7 +129,7 @@ export function finishRound(
     .sort((a, b) => a.number - b.number);
 
   return {
-    id: String(Date.now()),
+    id: Crypto.randomUUID(),
     courseId: round.courseId,
     courseName: round.courseName,
     teeKey: round.teeKey,

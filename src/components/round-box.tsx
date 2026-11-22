@@ -7,12 +7,14 @@ export type RoundBoxProps = {
   round: CompletedRound;
   theme: ColorSchemeName;
   onPress?: () => void;
+  playerName?: string;
 };
 
 export default function RoundBox({
   round,
   theme,
   onPress,
+  playerName,
 }: Readonly<RoundBoxProps>) {
   const styles = createStyles(theme);
   const toPar = formatToPar(round.totalStrokes, round.totalPar);
@@ -29,6 +31,9 @@ export default function RoundBox({
         pressed && styles.pressed,
       ]}
     >
+      {playerName ? (
+        <Text style={styles.secondaryText}>{playerName}</Text>
+      ) : null}
       <Text style={styles.title}>{round.courseName}</Text>
       <Text style={styles.secondaryText}>
         {date} · {holeCount} {holeCount === 1 ? "hole" : "holes"}
